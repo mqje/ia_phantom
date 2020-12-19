@@ -43,7 +43,7 @@ class Player():
         self.end = False
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.selected_room = 0
+        self.selected_room = 10
         self.data = []
         self.game_state = []
         self.question_type = []
@@ -91,7 +91,7 @@ class Player():
     # the aim for the fantom player is to put the fantom character in the biggest pool of manifestable or not_manifestable (suspect)
     # in order to get the maximum amount of suspect in all time
     def get_character_possible_movement(self, character):
-        if charact["color"] == "pink":
+        if character["color"] == "pink":
             active_passages = pink_passages
         else:
             active_passages = passages
@@ -125,8 +125,18 @@ class Player():
             if character in splited_characters[smallest_pool]:
                 possible_movement = self.get_character_possible_movement(character)
                 for room in possible_movement:
-                    if (self.is_room_manifestable(room) and biggest_pool == "manifestable") or
+                    if (self.is_room_manifestable(room) and biggest_pool == "manifestable") or \
                         (self.is_room_manifestable(room) == False and biggest_pool == "not_manifestable"):
+                        print("ici")
+                        self.selected_room = room
+                        return character
+        for character in chooseable_character:
+            if character in splited_characters[biggest_pool]:
+                possible_movement = self.get_character_possible_movement(character)
+                for room in possible_movement:
+                    if (self.is_room_manifestable(room) and biggest_pool == "manifestable") or \
+                        (self.is_room_manifestable(room) == False and biggest_pool == "not_manifestable"):
+                        print("ici")
                         self.selected_room = room
                         return character
         # faire en sorte de bouger les innocent pour desiquilibrer les pool
@@ -151,12 +161,17 @@ class Player():
                 i += 1
         elif self.question_type == "select position":
             i = 0
-            for room in self.data:
-                if self.selected_room == room:
-                    response_index = i
-                    break
-                i += 1
-            self.selected_room = 0
+            print(self.data)
+            print(self.selected_room)
+            if self.selected_room != 10:
+                for room in self.data:
+                    if self.selected_room == room:
+                        response_index = i
+                        break
+                    i += 1
+            else:
+                response_index = random.randint(0, len(self.data)-1)
+            self.selected_room = 10
         elif "activate" in self.question_type:
             response_index = 0
         else:
