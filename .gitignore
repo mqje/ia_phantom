@@ -1,3 +1,16 @@
+.DS_Store
+*.swp
+*.swo
+backup/*
+logs/fantom.log
+logs/game.log
+logs/inspector.log
+logs/profiling.txt
+changelog.txt
+__pycache__/*
+
+.idea/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
