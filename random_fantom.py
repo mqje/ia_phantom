@@ -44,7 +44,7 @@ class Player():
     def reset(self):
         self.socket.close()
 
-    def is_alone(position):
+    def is_alone(self, position):
         characters = self.game_state["characters"]
         population = 0
         for character in characters:
@@ -59,17 +59,18 @@ class Player():
         characters = self.game_state["characters"]
         shadow_room = self.game_state["shadow"]
         for character in characters:
-            if character["position"] in shadow_room or self.is_alone(character["position"]) == 1:
+            if character["position"] == shadow_room or self.is_alone(character["position"]) == 1:
                 manifestable.append(character)
             else:
                 not_manifestable.append(character)
-        print(manifestable)
-        print(not_manifestable)
-        print(game_state["characters"])
+        print("manifestable = ", manifestable)
+        print("not manifestable = ", not_manifestable)
+        print("game state = ", self.game_state["characters"])
+        print("shadow room = ", shadow_room)
         return 0
 
     def select_character(self):
-        return random.randint(0, len(data)-1)
+        return random.randint(0, len(self.data)-1)
 
     def move(self):
 
@@ -81,15 +82,15 @@ class Player():
         self.game_state = question["game state"]
         self.question_type = question["question type"]
 
-        if question_type == "select character":
+        if self.question_type == "select character":
             splited_characters = self.split_characters()
             response_index = self.select_character()
-        elif question_type == "select position":
+        elif self.question_type == "select position":
             response_index = self.move()
-        elif "activate" in question_type == True:
+        elif "activate" in self.question_type:
             response_index = 0
         else:
-            response_index = random.randint(0, len(data)-1)
+            response_index = random.randint(0, len(self.data)-1)
 
         fantom_logger.debug("|\n|")
         fantom_logger.debug("fantom answers")
