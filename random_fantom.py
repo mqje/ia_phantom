@@ -31,11 +31,9 @@ stream_handler.setLevel(logging.WARNING)
 fantom_logger.addHandler(stream_handler)
 
 
-
 class Player():
 
     def __init__(self):
-
         self.end = False
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -46,35 +44,59 @@ class Player():
     def reset(self):
         self.socket.close()
 
-    def select_character(self, data, game_state):
+    def is_alone(position):
+        characters = self.game_state["characters"]
+        population = 0
+        for character in characters:
+            if position == character["position"]:
+                population += 1
+        return (0 if population >= 2 else 1)
+
+    def split_characters(self):
+        # will get the manifestable character and the other in two array in order to define our inspector and fantom strategy
+        manifestable = []
+        not_manifestable = []
+        characters = self.game_state["characters"]
+        shadow_room = self.game_state["shadow"]
+        for character in characters:
+            if character["position"] in shadow_room or self.is_alone(character["position"]) == 1:
+                manifestable.append(character)
+            else:
+                not_manifestable.append(character)
+        print(manifestable)
+        print(not_manifestable)
+        print(game_state["characters"])
+        return 0
+
+    def select_character(self):
         return random.randint(0, len(data)-1)
 
-    def move(self, data, game_state):
+    def move(self):
+
         return 0
     
     def answer(self, question):
         # work
-        data = question["data"]
-        game_state = question["game state"]
-        question_type = question["question type"]
+        self.data = question["data"]
+        self.game_state = question["game state"]
+        self.question_type = question["question type"]
 
-        if question_type == "select character"
-            response_index = self.select_character(data, game_state)
+        if question_type == "select character":
+            splited_characters = self.split_characters()
+            response_index = self.select_character()
         elif question_type == "select position":
-            response_index = move(data, game_state)
+            response_index = self.move()
         elif "activate" in question_type == True:
             response_index = 0
         else:
             response_index = random.randint(0, len(data)-1)
-        
-            
-        # log
+
         fantom_logger.debug("|\n|")
         fantom_logger.debug("fantom answers")
-        fantom_logger.debug(f"question type ----- {question['question type']}")
-        fantom_logger.debug(f"data -------------- {data}")
+        fantom_logger.debug(f"question type ----- {self.question_type}")
+        fantom_logger.debug(f"data -------------- {self.data}")
         fantom_logger.debug(f"response index ---- {response_index}")
-        fantom_logger.debug(f"response ---------- {data[response_index]}")
+        fantom_logger.debug(f"response ---------- {self.data[response_index]}")
         return response_index
 
     def handle_json(self, data):
