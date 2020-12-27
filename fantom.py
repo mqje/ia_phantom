@@ -54,38 +54,32 @@ class Player():
     def reset(self):
         self.socket.close()
 
-    def is_alone(self, position):
-        characters = self.game_state["characters"]
+    def is_alone(self, position, characters):
         population = 0
         for character in characters:
             if position == character["position"]:
                 population += 1
-        return (0 if population >= 2 else 1)
+        return (True if population == 1 else False)
 
-    def split_characters(self):
+    def split_characters(self, characters):
         # will get the manifestable character and the other in two array in order to define our inspector and fantom strategy
         manifestable = []
         not_manifestable = []
-        innocent_manifestable = []
-        innocent_not_manifestable = []
-        characters = self.game_state["characters"]
+        innocent = []
         shadow_room = self.game_state["shadow"]
+
         for character in characters:
-            if (character["position"] == shadow_room or self.is_alone(character["position"]) == 1):
-                if character["suspect"] == True: 
-                    manifestable.append(character)
-                else:
-                    innocent_manifestable.append(character)
+            if (character["suspect"] == True and (character["position"] == shadow_room or self.is_alone(character["position"], characters) == True)):
+                manifestable.append(character)
+            elif (character["suspect"] == True and (character["position"] != shadow_room and self.is_alone(character["position"], characters) != True)):
+                not_manifestable.append(character)
             else:
-                if character["suspect"] == True: 
-                    not_manifestable.append(character)
-                else:
-                    innocent_manifestable.append(character)
+                innocent.append(character)
         splited_characters = {
             "manifestable" : manifestable,
             "not_manifestable" : not_manifestable,
-            "innocent_manifestable": innocent_manifestable
-        }
+            "innocent": innocent
+            }
         return splited_characters
 
     # the aim for the fantom player is to put the fantom character in the biggest pool of manifestable or not_manifestable (suspect)
@@ -97,21 +91,60 @@ class Player():
             active_passages = passages
         return [room for room in active_passages[character["position"]] if set([room, character["position"]]) != set(self.game_state["blocked"])]
 
+    def get_adjacent_positions_from_position(self, position, charact):
+        if charact["color"] == "pink":
+            active_passages = pink_passages
+        else:
+            active_passages = passages
+        return [room for room in active_passages[position] if set([room, position]) != set(self.game_state["blocked"])]
+
+    def get_character_movement(self, character):
+        # stolen from the server
+        characters_in_room = [q for q in self.game_state["characters"] if q["position"] == character["position"]]
+        number_of_characters_in_room = len(characters_in_room)
+
+        available_rooms = list()
+        available_rooms.append(self.get_character_possible_movement(character))
+        for step in range(1, number_of_characters_in_room):
+            next_rooms = list()
+            for room in available_rooms[step-1]:
+                next_rooms += self.get_adjacent_positions_from_position(room, character)
+            available_rooms.append(next_rooms)
+
+        temp = list()
+        for sublist in available_rooms:
+            for room in sublist:
+                temp.append(room)
+
+        temp = set(temp)
+        available_positions = list(temp)
+
+        return available_positions
+
     def is_room_manifestable(self, room):
         # room are manifestable and not_manifestable
         # a manifestable room is a room with the shadow or with only one person in it
         if self.game_state["shadow"] == room:
             return True
         characters = self.game_state["characters"]
+        i = 0
         for character in characters:
             if room == character["position"]:
+                i += 1
+            if i >= 2:
                 return False
         return True
 
+    def get_fantom(self, temp):
+        for c in temp:
+            if c["color"] == self.game_state["fantom"]:
+                return c
+
     def select_character(self):
-        # in the fantom case, we want to avoid the fifty fifty situation
-        splited_characters = self.split_characters()
+        splited_characters = self.split_characters(self.game_state["characters"])
+
         chooseable_character = self.data
+        suspects = []
         biggest_pool = []
         smallest_pool = []
         if (len(splited_characters["manifestable"]) < len(splited_characters["not_manifestable"])):
@@ -120,27 +153,34 @@ class Player():
         else:
             biggest_pool = "manifestable"
             smallest_pool = "not_manifestable"
-
+        fantom = self.get_fantom(self.game_state["characters"])
+        char_index = 0
         for character in chooseable_character:
-            if character in splited_characters[smallest_pool]:
-                possible_movement = self.get_character_possible_movement(character)
-                for room in possible_movement:
-                    if (self.is_room_manifestable(room) and biggest_pool == "manifestable") or \
-                        (self.is_room_manifestable(room) == False and biggest_pool == "not_manifestable"):
-                        print("ici")
-                        self.selected_room = room
-                        return character
-        for character in chooseable_character:
-            if character in splited_characters[biggest_pool]:
-                possible_movement = self.get_character_possible_movement(character)
-                for room in possible_movement:
-                    if (self.is_room_manifestable(room) and biggest_pool == "manifestable") or \
-                        (self.is_room_manifestable(room) == False and biggest_pool == "not_manifestable"):
-                        print("ici")
-                        self.selected_room = room
-                        return character
-        # faire en sorte de bouger les innocent pour desiquilibrer les pool
-        return chooseable_character[0]
+            possible_movement = self.get_character_movement(character)
+            move_index = 0
+            for room in possible_movement:
+                temp = []
+                for charact in self.game_state["characters"]:
+                    temp.append(dict(charact))
+                for charact in temp:
+                    if charact["color"] == character["color"]:
+                        charact.update({"position": room})
+                length = 0
+                splited_characters = self.split_characters(temp)
+                if fantom in splited_characters["manifestable"]:
+                    length = len(splited_characters["manifestable"])
+                else:
+                    length = len(splited_characters["not_manifestable"])
+                suspects.append({"char_color": character["color"],"char_index": char_index, "move_index": move_index, "nb_suspects": length})
+                move_index += 1
+            char_index += 1
+        fantom_choice = [c for c in suspects if c["char_color"] == self.game_state["fantom"]]
+        if len(fantom_choice) > 0:
+            best_choice = max(fantom_choice, key=lambda x:x["nb_suspects"])
+        else:
+            best_choice = max(suspects, key=lambda x:x["nb_suspects"])
+        self.selected_room = best_choice["move_index"]
+        return best_choice["char_index"]
 
     def move(self):
 
@@ -152,31 +192,13 @@ class Player():
         self.game_state = question["game state"]
         self.question_type = question["question type"]
         if self.question_type == "select character":
-            selected_character = self.select_character()
-            i = 0
-            for character in self.data:
-                if selected_character == character:
-                    response_index = i
-                    break
-                i += 1
+            response_index = self.select_character()
         elif self.question_type == "select position":
-            i = 0
-            print(self.data)
-            print(self.selected_room)
-            if self.selected_room != 10:
-                for room in self.data:
-                    if self.selected_room == room:
-                        response_index = i
-                        break
-                    i += 1
-            else:
-                response_index = random.randint(0, len(self.data)-1)
-            self.selected_room = 10
+            response_index = self.selected_room
         elif "activate" in self.question_type:
             response_index = 0
         else:
             response_index = random.randint(0, len(self.data)-1)
-
         fantom_logger.debug("|\n|")
         fantom_logger.debug("fantom answers")
         fantom_logger.debug(f"question type ----- {self.question_type}")

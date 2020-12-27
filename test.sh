@@ -1,4 +1,3 @@
-# Error handling
 if [[ $# -ne 4 ]]
 then
   echo "4 parameters expected:"
@@ -11,28 +10,30 @@ fi
 
 count=$4
 fantom_wins=0
+inspector_wins=0
 
 for i in $(seq $count)
 do
-  py $1 > test_logs 2>&1 &
+  python $1 > test_logs 2>&1 &
   pid=$!
-
-  py $2 > /dev/null 2>&1 &
-
-  py $3 > /dev/null 2>&1 &
+  python $2 > toto 2>&1 &
+  python $3 > tata 2>&1 &
   wait $pid
   output=$( cat test_logs )
   if [[ $output =~ "fantom wins" ]]
   then
-    # echo "$i: Fantom wins"
+    echo "$i: Fantom wins"
     ((fantom_wins=fantom_wins+1))
-  # else
-  #   echo "$i: Inspector wins"
+  elif [[ $output =~ "inspector wins" ]]
+  then
+    echo "$i: Inspector wins"
+    ((inspector_wins=inspector_wins+1))
+  else
+    echo "$i: Error"
   fi
 done
 
-rm test_logs
-inspector_wins=$((count-fantom_wins))
+#rm test_logs
 echo
 echo "Fantom won ${fantom_wins} times"
 echo "Inspector won ${inspector_wins} times"
